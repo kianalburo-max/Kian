@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Library Management System</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:wght@500;700&family=Libre+Franklin:wght@400;600&display=swap">
+<style>
+:root{--bg:#f7f9f6;--card:#fff;--ink:#17332a;--mute:#5d7569;--line:#cfdcd3;--g:#1f4d3a;--sage:#a8c3a0;--amber:#c98a12;--red:#b3261e;--on:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root:not([data-theme="light"]){}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1a15;--card:#162620;--ink:#e6efe9;--mute:#9db3a8;--line:#2c4238;--g:#6fb28e;--sage:#2f5a46;--amber:#e3a935;--red:#f2877f;--on:#0f1a15}}
+:root[data-theme="dark"]{--bg:#0f1a15;--card:#162620;--ink:#e6efe9;--mute:#9db3a8;--line:#2c4238;--g:#6fb28e;--sage:#2f5a46;--amber:#e3a935;--red:#f2877f;--on:#0f1a15}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Libre Franklin",system-ui,sans-serif}
+h1,h2{font-family:Newsreader,Georgia,serif;margin:0}
+header{padding:18px 16px 0;max-width:900px;margin:auto}
+header h1{font-size:28px;font-weight:700}
+header p{margin:2px 0 12px;color:var(--mute)}
+nav{display:flex;gap:6px;overflow-x:auto;padding:0 16px 10px;max-width:900px;margin:auto;position:sticky;top:0;background:var(--bg)}
+nav button{flex:none;background:none;border:1px solid var(--line);color:var(--ink);padding:7px 13px;border-radius:99px;font:inherit;cursor:pointer}
+nav button.on{background:var(--g);color:var(--on);border-color:var(--g)}
+main{max-width:900px;margin:auto;padding:6px 16px 40px}
+h2{font-size:22px;margin:14px 0 8px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.stat{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--g);padding:12px}
+.stat b{font:700 30px Newsreader,serif;display:block}.stat.warn{border-left-color:var(--red)}
+.add{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;background:var(--card);border:1px solid var(--line);padding:12px;margin-bottom:10px}
+input,select{width:100%;padding:9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+label{font-size:12px;color:var(--mute);display:block}
+button.p{background:var(--g);color:var(--on);border:0;border-radius:6px;padding:10px 14px;font:600 14px inherit;cursor:pointer;align-self:end}
+button.s{background:none;border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:4px 10px;cursor:pointer;font:inherit;font-size:13px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--amber);outline-offset:1px}
+.wrap{overflow-x:auto;background:var(--card);border:1px solid var(--line)}
+table{border-collapse:collapse;width:100%;min-width:520px}
+th{background:var(--g);color:var(--on);text-align:left;font-weight:600;padding:8px;font-size:13px}
+td{padding:8px;border-top:1px solid var(--line);font-size:14px}
+.tag{padding:2px 8px;border-radius:99px;font-size:12px;background:var(--sage);color:var(--ink)}
+.late{color:var(--red);font-weight:600}.empty{padding:18px;color:var(--mute)}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;display:none;max-width:90%}
+</style></head><body>
+<div id="who" style="display:flex;gap:8px;align-items:center;justify-content:flex-end;padding:10px 16px 0;max-width:900px;margin:auto;font-size:13px"></div>
+<header><h1>Library Management System</h1><p>Members, books, loans and fines in one place. Data is saved on this device.</p></header>
+<nav id="nav"></nav><main id="app"></main><div id="toast" role="status"></div>
+<script>
+var TABS=["Dashboard","Members","Books","Librarians","Borrowings","Fines"],tab="Dashboard",RATE=5,LOAN=7;
+var KEY="lms-v1",D;
+function iso(d){return d.toISOString().slice(0,10)}
+function addDays(s,n){var d=new Date(s+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+n);return iso(d)}
+function diff(a,b){return Math.round((new Date(a+"T00:00:00Z")-new Date(b+"T00:00:00Z"))/864e5)}
+var today=iso(new Date());
+function load(){try{var s=localStorage.getItem(KEY);if(s)return JSON.parse(s)}catch(e){}
+return {id:10,members:[{id:1,FirstName:"Maria",LastName:"Santos",Email:"maria@example.com",Phone:"0917 000 1111",Address:"12 Rizal St"},{id:2,FirstName:"Jun",LastName:"Reyes",Email:"jun@example.com",Phone:"0918 000 2222",Address:"5 Mabini Ave"}],
+books:[{id:1,Title:"Noli Me Tangere",Author:"José Rizal",Genre:"Classic",ISBN:"9780140390544",CopiesAvailable:3},{id:2,Title:"Clean Code",Author:"Robert C. Martin",Genre:"Technology",ISBN:"9780132350884",CopiesAvailable:2}],
+librarians:[{id:1,FirstName:"Ana",LastName:"Cruz",Email:"ana@library.org",Phone:"0919 000 3333"}],borrowings:[],fines:[]}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){}}
+D=load();
+function toast(m){var t=document.getElementById("toast");t.textContent=m;t.style.display="block";clearTimeout(toast.h);toast.h=setTimeout(function(){t.style.display="none"},2800)}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function find(a,id){return D[a].filter(function(x){return x.id==id})[0]}
+function nm(p){return p?p.FirstName+" "+p.LastName:"(deleted)"}
+var ENT={Members:{k:"members",f:["FirstName","LastName","Email","Phone","Address"],req:2,one:"member"},
+Books:{k:"books",f:["Title","Author","Genre","ISBN","CopiesAvailable"],req:1,one:"book"},
+Librarians:{k:"librarians",f:["FirstName","LastName","Email","Phone","Username"],req:2,one:"librarian"}};
+function nav(){var n=document.getElementById("nav");n.innerHTML=TABS.map(function(t){return '<button class="'+(t==tab?"on":"")+'" data-t="'+t+'">'+t+'</button>'}).join("");
+n.onclick=function(e){var t=e.target.getAttribute("data-t");if(t){tab=t;render()}}}
+function me(){try{return sessionStorage.getItem("lms-user")}catch(e){return null}}
+function render(){var a=document.getElementById("app"),u=me(),L=u&&find("librarians",u);
+document.getElementById("who").innerHTML=L?esc(nm(L))+' <button class="s" onclick="logout()">Log out</button>':"";
+if(!L){document.getElementById("nav").innerHTML="";a.innerHTML=loginView();return}
+nav();
+if(tab=="Dashboard")a.innerHTML=dash();else if(ENT[tab])a.innerHTML=ent(tab);else if(tab=="Borrowings")a.innerHTML=borrow();else a.innerHTML=fines();
+window.scrollTo(0,0)}
+function dash(){var out=D.borrowings.filter(function(b){return b.Status=="Borrowed"}),over=out.filter(function(b){return b.DueDate<today}),unpaid=D.fines.filter(function(f){return f.PaymentStatus=="Unpaid"});
+var owed=unpaid.reduce(function(s,f){return s+f.FineAmount},0);
+function s(n,l,w){return '<div class="stat '+(w?"warn":"")+'"><b>'+n+'</b>'+l+'</div>'}
+var rows=over.map(function(b){return '<tr><td>'+esc(nm(find("members",b.MemberID)))+'</td><td>'+esc((find("books",b.BookID)||{}).Title)+'</td><td class="late">'+(diff(today,b.DueDate))+' days late</td></tr>'}).join("");
+return '<h2>Today at the desk</h2><div class="stats">'+s(D.members.length,"members")+s(D.books.length,"book titles")+s(out.length,"books out")+s(over.length,"overdue",over.length)+s(owed.toFixed(2),"fines unpaid",owed>0)+'</div><h2>Overdue now</h2>'+
+(rows?'<div class="wrap"><table><tr><th>Member</th><th>Book</th><th>Late by</th></tr>'+rows+'</table></div>':'<div class="wrap empty">Nothing is overdue.</div>')}
+function ent(t){var E=ENT[t],h='<h2>'+t+'</h2><div class="add">';
+E.f.forEach(function(f,i){h+='<div><label>'+f+(i<E.req?" *":"")+'</label><input id="f_'+f+'" '+(f=="CopiesAvailable"?'type="number" min="0" value="1"':"")+'></div>'});
+if(t=="Librarians")h+='<div><label>Password (6+ characters) *</label><input id="f_Password" type="password" autocomplete="new-password"></div>';
+h+='<button class="p" onclick="addEnt(\''+t+'\')">Add '+E.one+'</button></div><input id="q" placeholder="Search '+t.toLowerCase()+'" oninput="filt()" style="margin-bottom:10px">';
+h+='<div class="wrap"><table id="tb"><tr><th>ID</th>'+E.f.map(function(f){return '<th>'+f+'</th>'}).join("")+'<th></th></tr>';
+D[E.k].slice().reverse().forEach(function(x){h+='<tr><td>'+x.id+'</td>'+E.f.map(function(f){return '<td>'+esc(x[f])+'</td>'}).join("")+'<td><button class="s" onclick="delEnt(\''+t+'\','+x.id+')">Delete</button></td></tr>'});
+return h+'</table></div>'}
+function filt(){var v=document.getElementById("q").value.toLowerCase();document.querySelectorAll("#tb tr").forEach(function(r,i){if(i)r.style.display=r.textContent.toLowerCase().indexOf(v)>-1?"":"none"})}
+async function addEnt(t){var E=ENT[t],o={id:D.id++},un="";
+if(t=="Librarians"){un=document.getElementById("f_Username").value.trim().toLowerCase();var pw=document.getElementById("f_Password").value;if(!un||pw.length<6){toast("Enter a username and a password of 6+ characters.");return}if(D.librarians.some(function(l){return l.Username==un})){toast("That username is taken.");return}o.PassHash=await hp(un,pw)}
+for(var i=0;i<E.f.length;i++){var f=E.f[i],v=document.getElementById("f_"+f).value.trim();if(i<E.req&&!v){toast("Enter "+f+" to add a "+E.one+".");return}o[f]=f=="CopiesAvailable"?Math.max(0,parseInt(v||"1",10)):v}
+if(t=="Librarians")o.Username=un;D[E.k].push(o);save();render();toast("Added "+E.one+".")}
+function delEnt(t,id){var E=ENT[t],key={members:"MemberID",books:"BookID",librarians:"LibrarianID"}[E.k];
+if(D.borrowings.some(function(b){return b[key]==id})){toast("Can't delete: this "+E.one+" has borrowing records.");return}
+if(t=="Librarians"&&id==me()){toast("You can't delete the account you're logged in with.");return}
+if(!confirm("Delete this "+E.one+"?"))return;D[E.k]=D[E.k].filter(function(x){return x.id!=id});save();render();toast("Deleted "+E.one+".")}
+function opts(a,fn){return '<option value="">Choose…</option>'+D[a].map(function(x){return '<option value="'+x.id+'">'+esc(fn(x))+'</option>'}).join("")}
+function borrow(){var h='<h2>Borrowings</h2><div class="add"><div><label>Member *</label><select id="bm">'+opts("members",nm)+'</select></div>'+
+'<div><label>Book *</label><select id="bb">'+opts("books",function(b){return b.Title+" ("+b.CopiesAvailable+" left)"})+'</select></div>'+
+'<div><label>Librarian *</label><select id="bl">'+opts("librarians",nm).replace('value="'+me()+'"','value="'+me()+'" selected')+'</select></div>'+
+'<div><label>Borrow date (past date makes it overdue)</label><input id="bd" type="date" value="'+today+'"></div><button class="p" onclick="doBorrow()">Borrow ('+LOAN+' days)</button></div>';
+h+='<div class="wrap"><table><tr><th>ID</th><th>Member</th><th>Book</th><th>Librarian</th><th>Borrowed</th><th>Due</th><th>Returned</th><th>Status</th><th></th></tr>';
+D.borrowings.slice().reverse().forEach(function(b){var od=b.Status=="Borrowed"&&b.DueDate<today;
+h+='<tr><td>'+b.id+'</td><td>'+esc(nm(find("members",b.MemberID)))+'</td><td>'+esc((find("books",b.BookID)||{}).Title)+'</td><td>'+esc(nm(find("librarians",b.LibrarianID)))+'</td><td>'+b.BorrowDate+'</td><td class="'+(od?"late":"")+'">'+b.DueDate+'</td><td>'+(b.ReturnDate||"")+'</td><td><span class="tag">'+b.Status+'</span></td><td>'+(b.Status=="Borrowed"?'<button class="s" onclick="doReturn('+b.id+')">Return</button>':"")+'</td></tr>'});
+if(!D.borrowings.length)h+='<tr><td colspan="9" class="empty">No loans yet. Choose a member, book and librarian above.</td></tr>';
+return h+'</table></div>'}
+function doBorrow(){var m=document.getElementById("bm").value,b=document.getElementById("bb").value,l=document.getElementById("bl").value,d=document.getElementById("bd").value||today;
+if(!m||!b||!l){toast("Choose a member, book and librarian.");return}
+var bk=find("books",b);if(bk.CopiesAvailable<1){toast("No copies left of this book.");return}
+bk.CopiesAvailable--;D.borrowings.push({id:D.id++,MemberID:+m,BookID:+b,LibrarianID:+l,BorrowDate:d,DueDate:addDays(d,LOAN),ReturnDate:null,Status:"Borrowed"});save();render();toast("Book borrowed. Due "+addDays(d,LOAN)+".")}
+function doReturn(id){var b=find("borrowings",id);b.ReturnDate=today;b.Status="Returned";find("books",b.BookID).CopiesAvailable++;
+var late=diff(today,b.DueDate),msg="Book returned on time.";
+if(late>0){D.fines.push({id:D.id++,BorrowID:id,FineAmount:late*RATE,PaymentStatus:"Unpaid",PaidDate:null});msg="Returned "+late+" day(s) late. Fine of "+(late*RATE).toFixed(2)+" recorded."}
+save();render();toast(msg)}
+function fines(){var h='<h2>Fines</h2><div class="wrap"><table><tr><th>ID</th><th>Borrowing</th><th>Member</th><th>Book</th><th>Amount</th><th>Status</th><th>Paid on</th><th></th></tr>';
+D.fines.slice().reverse().forEach(function(f){var b=find("borrowings",f.BorrowID)||{};
+h+='<tr><td>'+f.id+'</td><td>'+f.BorrowID+'</td><td>'+esc(nm(find("members",b.MemberID)))+'</td><td>'+esc((find("books",b.BookID)||{}).Title)+'</td><td>'+f.FineAmount.toFixed(2)+'</td><td><span class="tag">'+f.PaymentStatus+'</span></td><td>'+(f.PaidDate||"")+'</td><td>'+(f.PaymentStatus=="Unpaid"?'<button class="s" onclick="payFine('+f.id+')">Mark paid</button>':"")+'</td></tr>'});
+if(!D.fines.length)h+='<tr><td colspan="8" class="empty">No fines. Late returns are charged '+RATE.toFixed(2)+' per day.</td></tr>';
+return h+'</table></div>'}
+function payFine(id){var f=find("fines",id);f.PaymentStatus="Paid";f.PaidDate=today;save();render();toast("Fine marked as paid.")}
+async function hp(u,p){var b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("lms:"+u.toLowerCase()+":"+p));return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,"0")}).join("")}
+function hasAcc(){return D.librarians.some(function(l){return l.PassHash})}
+function loginView(){var first=!hasAcc();return '<h2>'+(first?'Create the first librarian account':'Librarian log in')+'</h2><div class="add" style="max-width:420px;grid-template-columns:1fr">'+(first?'<div><label>First name *</label><input id="lf"></div><div><label>Last name *</label><input id="ll"></div>':'')+'<div><label>Username *</label><input id="lu" autocapitalize="none" autocomplete="username"></div><div><label>Password *'+(first?' (6+ characters)':'')+'</label><input id="lp" type="password" autocomplete="'+(first?'new-password':'current-password')+'"></div><button class="p" id="lgo" onclick="'+(first?'setup()':'login()')+'">'+(first?'Create account':'Log in')+'</button></div>'}
+async function login(){var u=document.getElementById("lu").value.trim().toLowerCase(),p=document.getElementById("lp").value,h=await hp(u,p);
+var L=D.librarians.filter(function(l){return l.Username==u&&l.PassHash==h})[0];
+if(!L){toast("Wrong username or password.");return}
+try{sessionStorage.setItem("lms-user",L.id)}catch(e){}tab="Dashboard";render();toast("Welcome, "+L.FirstName+".")}
+async function setup(){var f=document.getElementById("lf").value.trim(),l=document.getElementById("ll").value.trim(),u=document.getElementById("lu").value.trim().toLowerCase(),p=document.getElementById("lp").value;
+if(!f||!l||!u||p.length<6){toast("Fill in every field. Use a password of 6+ characters.");return}
+var o={id:D.id++,FirstName:f,LastName:l,Email:"",Phone:"",Username:u,PassHash:await hp(u,p)};D.librarians.push(o);save();
+try{sessionStorage.setItem("lms-user",o.id)}catch(e){}tab="Dashboard";render();toast("Account created. You're logged in.")}
+function logout(){try{sessionStorage.removeItem("lms-user")}catch(e){}render()}
+document.addEventListener("keydown",function(e){if(e.key=="Enter"){var b=document.getElementById("lgo");if(b&&document.getElementById("lp"))b.click()}});
+render();
+</script></body></html>
